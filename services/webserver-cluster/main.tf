@@ -22,14 +22,16 @@ data "template_file" "user_data" {
     server_port = var.server_port
     db_host     = var.db_host
     db_port     = var.db_port
+    server_text = var.server_text
   }
 }
 
 resource "aws_launch_configuration" "example" {
-  image_id        = "ami-06d51e91cea0dac8d"
+  image_id        = var.ami
   instance_type   = var.instance_type
   security_groups = [aws_security_group.instance.id]
-  user_data       = data.template_file.user_data.rendered
+
+  user_data = data.template_file.user_data.rendered
 
   # Required when using a launch configuration with an ASG. https://www.terraform.io/docs/providers/aws/r/launch_configuration.html
   lifecycle {
@@ -49,12 +51,24 @@ resource "aws_security_group" "instance" {
 }
 
 resource "aws_autoscaling_group" "example" {
+  # explicitly depend on launch config name so that ASG is replaced each time it changes
+  name = "${var.cluster_name}-${aws_launch_configuration.example.name}"
+
   launch_configuration = aws_launch_configuration.example.name
   vpc_zone_identifier  = data.aws_subnet_ids.default.ids
   target_group_arns    = [aws_lb_target_group.asg.arn]
   health_check_type    = "ELB"
-  min_size             = var.min_size
-  max_size             = var.max_size
+
+  min_size = var.min_size
+  max_size = var.max_size
+
+  # wait for at least this many instances to pass health checks before considering ASG deployment complete
+  min_elb_capacity = var.min_size
+
+  # create the replacement ASG first, only delete the original after it is healthy
+  lifecycle {
+    create_before_destroy = true
+  }
 
   tag {
     key                 = "Name"

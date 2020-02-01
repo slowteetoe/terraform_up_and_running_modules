@@ -46,3 +46,15 @@ variable "enable_autoscaling" {
   type        = bool
   default     = false
 }
+
+variable "ami" {
+  description = "AMI to run in the cluster"
+  default     = "ami-06d51e91cea0dac8d"
+  type        = string
+}
+
+variable "server_text" {
+  description = "text that should show up in the webserver index"
+  default     = "Hello, world"
+  type        = string
+}

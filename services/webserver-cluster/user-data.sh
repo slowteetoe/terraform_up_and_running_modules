@@ -3,7 +3,7 @@
 cat > index.html <<EOF
 <html>
 <body>
-<h1>hola, mundo! Now, using modules!</h1>
+<h1>${server_text}</h1>
 <p>DB address: ${db_host}:${db_port}</p>
 </body>
 </html>
