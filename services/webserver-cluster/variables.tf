@@ -37,6 +37,12 @@ variable "max_size" {
 
 variable "custom_tags" {
   description = "Custom tags to set on ASG instances"
-  type = map(string)
-  default = {}
+  type        = map(string)
+  default     = {}
+}
+
+variable "enable_autoscaling" {
+  description = "If true, enable auto-scaling"
+  type        = bool
+  default     = false
 }
