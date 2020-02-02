@@ -32,6 +32,10 @@ variable "enable_autoscaling" {
   default     = false
 }
 
+variable "subnet_ids" {
+  description = "The subnet IDs to deploy to"
+  type        = list(string)
+}
 
 variable "target_group_arns" {
   description = "The ARNs of ELB target groups in which to register Instances"
