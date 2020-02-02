@@ -1,29 +1,5 @@
-
-locals {
-  http_port    = 80
-  any_port     = 0
-  any_protocol = "-1"
-  tcp_protocol = "tcp"
-  all_ips      = ["0.0.0.0/0"]
-}
-
-data "aws_vpc" "default" {
-  default = true
-}
-
-data "aws_subnet_ids" "default" {
-  vpc_id = data.aws_vpc.default.id
-}
-
-data "template_file" "user_data" {
-  template = file("${path.module}/user-data.sh")
-
-  vars = {
-    server_port = var.server_port
-    db_host     = var.db_host
-    db_port     = var.db_port
-    server_text = var.server_text
-  }
+terraform {
+  required_version = ">= 0.12, < 0.13"
 }
 
 resource "aws_launch_configuration" "example" {
@@ -31,7 +7,7 @@ resource "aws_launch_configuration" "example" {
   instance_type   = var.instance_type
   security_groups = [aws_security_group.instance.id]
 
-  user_data = data.template_file.user_data.rendered
+  user_data = var.user_data
 
   # Required when using a launch configuration with an ASG. https://www.terraform.io/docs/providers/aws/r/launch_configuration.html
   lifecycle {
@@ -39,25 +15,16 @@ resource "aws_launch_configuration" "example" {
   }
 }
 
-resource "aws_security_group" "instance" {
-  name = "${var.cluster_name}-instance"
-
-  ingress {
-    from_port   = var.server_port
-    to_port     = var.server_port
-    protocol    = local.tcp_protocol
-    cidr_blocks = local.all_ips
-  }
-}
-
 resource "aws_autoscaling_group" "example" {
   # explicitly depend on launch config name so that ASG is replaced each time it changes
   name = "${var.cluster_name}-${aws_launch_configuration.example.name}"
-
   launch_configuration = aws_launch_configuration.example.name
-  vpc_zone_identifier  = data.aws_subnet_ids.default.ids
-  target_group_arns    = [aws_lb_target_group.asg.arn]
-  health_check_type    = "ELB"
+
+  vpc_zone_identifier  = var.subnet_ids
+  
+  # Configure integrations with a load balancer
+  target_group_arns    = var.target_group_arns
+  health_check_type    = var.health_check_type
 
   min_size = var.min_size
   max_size = var.max_size
@@ -72,12 +39,16 @@ resource "aws_autoscaling_group" "example" {
 
   tag {
     key                 = "Name"
-    value               = "${var.cluster_name}-example"
+    value               = var.cluster_name}
     propagate_at_launch = true
   }
 
   dynamic "tag" {
-    for_each = var.custom_tags
+    for_each = {
+      for key, value in var.custom_tags:
+      key => upper(value)
+      if key != "Name"
+    }
 
     content {
       key                 = tag.key
@@ -109,84 +80,18 @@ resource "aws_autoscaling_schedule" "scale_in_at_night" {
   autoscaling_group_name = aws_autoscaling_group.example.name
 }
 
-resource "aws_lb" "example" {
-  name               = "${var.cluster_name}-example"
-  load_balancer_type = "application"
-  subnets            = data.aws_subnet_ids.default.ids
-  security_groups    = [aws_security_group.alb.id]
+resource "aws_security_group" "instance" {
+  name = "${var.cluster_name}-instance"
 }
 
-resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.example.arn
-  port              = local.http_port
-  protocol          = "HTTP"
-
-  default_action {
-    type = "fixed-response"
-
-    fixed_response {
-      content_type = "text/plain"
-      message_body = "404: you screwed something up"
-      status_code  = 404
-    }
-  }
-}
-
-resource "aws_lb_listener_rule" "asg" {
-  listener_arn = aws_lb_listener.http.arn
-  priority     = 100
-
-  condition {
-    path_pattern {
-      values = ["*"]
-    }
-  }
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.asg.arn
-  }
-}
-
-resource "aws_security_group" "alb" {
-  name = "${var.cluster_name}-alb"
-}
-
-resource "aws_security_group_rule" "allow_http_inbound" {
+resource "aws_security_group_rule" "allow_server_http_inbound" {
   type              = "ingress"
-  security_group_id = aws_security_group.alb.id
-  from_port         = local.http_port
-  to_port           = local.http_port
-  protocol          = local.tcp_protocol
-  cidr_blocks       = local.all_ips
+  security_group_id = aws_security_group.instance.id
 
-}
-
-resource "aws_security_group_rule" "allow_all_outbound" {
-  type              = "egress"
-  security_group_id = aws_security_group.alb.id
-  from_port         = local.any_port
-  to_port           = local.any_port
-  protocol          = local.any_protocol
-  cidr_blocks       = local.all_ips
-
-}
-
-resource "aws_lb_target_group" "asg" {
-  name     = "${var.cluster_name}-example"
-  port     = var.server_port
-  protocol = "HTTP"
-  vpc_id   = data.aws_vpc.default.id
-
-  health_check {
-    path                = "/"
-    protocol            = "HTTP"
-    matcher             = "200"
-    interval            = 15
-    timeout             = 3
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
-  }
+  from_port   = var.server_port
+  to_port     = var.server_port
+  protocol    = local.tcp_protocol
+  cidr_blocks = local.all_ips
 }
 
 resource "aws_cloudwatch_metric_alarm" "high_cpu_utilization" {
@@ -224,4 +129,9 @@ resource "aws_cloudwatch_metric_alarm" "low_cpu_credit_balance" {
   statistic           = "Minimum"
   threshold           = 10
   unit                = "Count"
+}
+
+locals {
+  tcp_protocol = "tcp"
+  all_ips      = ["0.0.0.0/0"]
 }
