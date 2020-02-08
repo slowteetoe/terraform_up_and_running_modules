@@ -19,20 +19,10 @@ variable "enable_autoscaling" {
   type        = bool
 }
 
-variable "db_remote_state_bucket" {
-  description = "The name of the S3 bucket used for the database's remote state storage"
-  type        = string
-}
-
-variable "db_remote_state_key" {
-  description = "The name of the key in the S3 bucket used for the database's remote state storage"
-  type        = string
-}
-
 variable "ami" {
   description = "The AMI to run in the cluster"
   type        = string
-  default     = "ami-0c55b159cbfafe1f0"
+  default     = "ami-06d51e91cea0dac8d"
 }
 
 variable "instance_type" {
@@ -57,4 +47,40 @@ variable "custom_tags" {
   description = "Custom tags to set on the Instances in the ASG"
   type        = map(string)
   default     = {}
+}
+
+# the following can either be supplied by data, or passed in as inputs.  this allows for better
+# composition and testing.  look at dependencies.tf to see how this is used
+
+variable "db_remote_state_bucket" {
+  description = "The name of the S3 bucket used for the database's remote state storage"
+  type        = string
+  default     = null
+}
+
+variable "db_remote_state_key" {
+  description = "The name of the key in the S3 bucket used for the database's remote state storage"
+  type        = string
+  default     = null
+}
+
+variable "vpc_id" {
+  description = "ID of the VPC to deploy into"
+  type        = string
+  default     = null
+}
+
+variable "subnet_ids" {
+  description = "IDs of the subnets to deploy into"
+  type        = list(string)
+  default     = null
+}
+
+variable "mysql_config" {
+  description = "host and port for the mysql DB"
+  type = object({
+    address = string
+    port    = number
+  })
+  default = null
 }
