@@ -14,7 +14,7 @@ func TestHelloWorldAppExample(t *testing.T) {
 		TerraformDir: "../examples/hello-world-app",
 		Vars: map[string]interface{}{
 			"mysql_config": map[string]interface{}{
-				"address": "mocked,-server-address-for-test",
+				"address": "mocked-server-address-for-test",
 				"port":    3306,
 			},
 		},
@@ -26,9 +26,14 @@ func TestHelloWorldAppExample(t *testing.T) {
 	url := fmt.Sprintf("http://%s", albDNSName)
 
 	expectedStatus := 200
-	expectedBody := "hola"
+	expectedBody := `<html>
+<body>
+<h1>hola</h1>
+<p>DB address: mocked-server-address-for-test:3306</p>
+</body>
+</html>`
 
-	maxRetries := 10
+	maxRetries := 3
 	timeBetweenRetries := 10 * time.Second
 
 	http_helper.HttpGetWithRetry(t, url, nil, expectedStatus, expectedBody, maxRetries, timeBetweenRetries)
