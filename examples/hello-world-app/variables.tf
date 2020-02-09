@@ -7,7 +7,13 @@ variable "mysql_config" {
   })
 
   default = {
-      address = "mock-mysql-address"
-      port = 12345
+    address = "mock-mysql-address"
+    port    = 12345
   }
+}
+
+variable "environment" {
+  description = "Name of the environment deploying to"
+  type        = string
+  default     = "example"
 }
