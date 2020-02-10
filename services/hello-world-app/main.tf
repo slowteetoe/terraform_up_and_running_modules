@@ -1,5 +1,14 @@
 terraform {
   required_version = ">= 0.12, < 0.13"
+  
+    # partial config, the remainder will be filled in by Terragrunt
+  backend "s3" {}
+}
+
+provider "aws" {
+  region = "us-west-2"
+
+  version = "~> 2.0"
 }
 
 module "asg" {
